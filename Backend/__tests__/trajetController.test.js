@@ -3,6 +3,7 @@ const Trajet = require('../models/Trajet');
 const Camion = require('../models/Camion');
 const Remorque = require('../models/Remorque');
 const Chauffeur = require('../models/Chauffeur');
+const Pneu = require('../models/Pneu');
 
 jest.mock('../models/Trajet', () => ({
     create: jest.fn(),
@@ -23,6 +24,10 @@ jest.mock('../models/Remorque', () => ({
 jest.mock('../models/Chauffeur', () => ({
     findById: jest.fn(),
     findOne: jest.fn()
+}));
+
+jest.mock('../models/Pneu', () => ({
+    find: jest.fn()
 }));
 
 const mockResponse = () => {
@@ -234,9 +239,13 @@ describe('Trajet Controller', () => {
             const res = mockResponse();
             const save = jest.fn().mockResolvedValue();
 
-            const trajetDoc = { _id: 't1', chauffeur: 'ch1', kilometrageDepart: 1000, save };
+            const trajetDoc = { _id: 't1', chauffeur: 'ch1', remorque: 'r1', kilometrageDepart: 1000, save };
             Trajet.findById.mockResolvedValue(trajetDoc);
             Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', user: 'u1', status: 'actif' });
+            Camion.findById.mockResolvedValue({ _id: 'c1', kilometrage: 1200, save: jest.fn().mockResolvedValue() });
+                const pneuCamion = { kilometrage: 1000, save: jest.fn().mockResolvedValue() };
+                const pneuRemorque = { kilometrage: 2000, save: jest.fn().mockResolvedValue() };
+                Pneu.find.mockResolvedValueOnce([pneuCamion]).mockResolvedValueOnce([pneuRemorque]);
 
             await trajetController.updateTrajetLog(req, res, next);
 
@@ -244,6 +253,10 @@ describe('Trajet Controller', () => {
             expect(trajetDoc.kilometrageArrivee).toBe(1500);
             expect(trajetDoc.volumeGasoilConsommee).toBe(50);
             expect(trajetDoc.remarquesEtat).toBe('RAS');
+                expect(pneuCamion.kilometrage).toBe(1500);
+                expect(pneuCamion.usure).toBeCloseTo((1500 / 40000) * 100);
+                expect(pneuRemorque.kilometrage).toBe(2500);
+                expect(pneuRemorque.usure).toBeCloseTo((2500 / 40000) * 100);
             expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: trajetDoc });
         });
 
@@ -254,6 +267,8 @@ describe('Trajet Controller', () => {
 
             const trajetDoc = { _id: 't1', chauffeur: 'ch1', kilometrageDepart: 1000, save };
             Trajet.findById.mockResolvedValue(trajetDoc);
+            Camion.findById.mockResolvedValue({ _id: 'c1', kilometrage: 1200, save: jest.fn().mockResolvedValue() });
+            Pneu.find.mockResolvedValue([]);
 
             await trajetController.updateTrajetLog(req, res, next);
 

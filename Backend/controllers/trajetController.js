@@ -2,6 +2,7 @@ const Trajet = require('../models/Trajet');
 const Camion = require('../models/Camion');
 const Remorque = require('../models/Remorque');
 const Chauffeur = require('../models/Chauffeur');
+const Pneu = require('../models/Pneu');
 
 exports.createTrajet = async (req, res, next) => {
     try {
@@ -228,6 +229,8 @@ exports.updateTrajetLog = async (req, res, next) => {
             }
         }
 
+        const currentArrival = trajet.kilometrageArrivee;
+
         if (updates.kilometrageArrivee !== undefined) {
             if (updates.kilometrageArrivee < trajet.kilometrageDepart) {
                 return res.status(400).json({
@@ -254,7 +257,36 @@ exports.updateTrajetLog = async (req, res, next) => {
             trajet.remarquesEtat = updates.remarquesEtat;
         }
 
+        const baseForDelta = currentArrival !== undefined ? currentArrival : trajet.kilometrageDepart;
+        const deltaKm = updates.kilometrageArrivee !== undefined ? updates.kilometrageArrivee - baseForDelta : 0;
+
         await trajet.save();
+
+        if (updates.kilometrageArrivee !== undefined && deltaKm > 0) {
+            const camion = await Camion.findById(trajet.camion);
+            if (camion && (camion.kilometrage === undefined || camion.kilometrage < updates.kilometrageArrivee)) {
+                camion.kilometrage = updates.kilometrageArrivee;
+                await camion.save();
+            }
+
+            const pneusCamion = await Pneu.find({ camion: trajet.camion });
+            for (const pneu of pneusCamion) {
+                const newKm = (pneu.kilometrage || 0) + deltaKm;
+                pneu.kilometrage = newKm;
+                pneu.usure = Math.min(100, (newKm / 40000) * 100);
+                await pneu.save();
+            }
+
+            if (trajet.remorque) {
+                const pneusRemorque = await Pneu.find({ remorque: trajet.remorque });
+                for (const pneu of pneusRemorque) {
+                    const newKm = (pneu.kilometrage || 0) + deltaKm;
+                    pneu.kilometrage = newKm;
+                    pneu.usure = Math.min(100, (newKm / 40000) * 100);
+                    await pneu.save();
+                }
+            }
+        }
 
         return res.json({ success: true, status: 200, data: trajet });
     } catch (err) {

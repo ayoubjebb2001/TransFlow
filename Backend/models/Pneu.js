@@ -7,6 +7,7 @@ const PneuSchema = new mongoose.Schema(
         dimension: { type: String, required: true, trim: true },
         etat: { type: String, enum: ['neuf', 'use', 'a_remplacer'], default: 'neuf' },
         kilometrage: { type: Number, default: 0 },
+        usure : { type: Number, min: 0, max: 100, default: 0 },
         position: { type: String, trim: true },
         camion: { type: mongoose.Schema.Types.ObjectId, ref: 'Camion', default: null },
         remorque: { type: mongoose.Schema.Types.ObjectId, ref: 'Remorque', default: null },

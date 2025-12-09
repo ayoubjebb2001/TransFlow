@@ -1,6 +1,8 @@
 const User = require('../models/User');
+const Chauffeur = require('../models/Chauffeur');
 const { generateToken } = require('../services/jwt');
 const { hashPassword, comparePassword } = require('../services/hash');
+const { createChauffeurSchema } = require('../validators/chauffeur');
 
 exports.register = async (req, res, next) => {
     try {
@@ -17,6 +19,20 @@ exports.register = async (req, res, next) => {
 
         const hashedPassword = await hashPassword(payload.password);
         const user = await User.create({ ...payload, password: hashedPassword });
+
+        if (user.role === 'chauffeur') {
+            const chauffeurData = await createChauffeurSchema.validate(
+                {
+                    phone: payload.phone,
+                    licenseNumber: payload.licenseNumber,
+                    status: payload.status,
+                    serviceYears: payload.serviceYears
+                },
+                { abortEarly: false, stripUnknown: true }
+            );
+
+            await Chauffeur.create({ user: user._id, ...chauffeurData });
+        }
         const token = generateToken({ id: user._id, role: user.role });
 
         return res.status(201).json({
@@ -38,16 +54,16 @@ exports.login = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 status: 401,
-                message: 'Invalid credentials' 
+                message: 'Invalid credentials'
             });
         }
 
         const isMatch = await comparePassword(payload.password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 success: false,
                 status: 401,
-                message: 'Invalid credentials' 
+                message: 'Invalid credentials'
             });
         }
 
@@ -55,7 +71,7 @@ exports.login = async (req, res, next) => {
         return res.json({
             success: true,
             status: 200,
-            data:{ user, token}
+            data: { user, token }
         });
     } catch (err) {
         return next(err);

@@ -11,6 +11,7 @@ const TrajetSchema = new mongoose.Schema(
         kilometrageDepart: { type: Number, required: true, min: 0 },
         kilometrageArrivee: { type: Number, min: 0 },
         volumeGasoilConsommee: { type: Number, min: 0, default: 0 },
+        remarquesEtat: { type: String, trim: true, default: '' },
         statut: { type: String, enum: ['à faire', 'en_cours', 'terminé'], default: 'à faire' }
     },
     { timestamps: true }

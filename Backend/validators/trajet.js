@@ -36,4 +36,16 @@ const assignChauffeurSchema = yup
     })
     .noUnknown();
 
-module.exports = { createTrajetSchema, updateTrajetSchema, assignChauffeurSchema };
+const updateTrajetLogSchema = yup
+    .object({
+        kilometrageArrivee: yup.number().min(0).notRequired(),
+        volumeGasoilConsommee: yup.number().min(0).notRequired(),
+        remarquesEtat: yup.string().trim().notRequired()
+    })
+    .test('at-least-one', 'Au moins un champ doit être renseigné', value => {
+        if (!value) return false;
+        return value.kilometrageArrivee !== undefined || value.volumeGasoilConsommee !== undefined || !!value.remarquesEtat;
+    })
+    .noUnknown();
+
+module.exports = { createTrajetSchema, updateTrajetSchema, assignChauffeurSchema, updateTrajetLogSchema };

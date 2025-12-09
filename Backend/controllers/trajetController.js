@@ -207,6 +207,61 @@ exports.getChauffeurTrajets = async (req, res, next) => {
     }
 };
 
+exports.updateTrajetLog = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const trajet = await Trajet.findById(id);
+        if (!trajet) {
+            return res.status(404).json({ success: false, status: 404, message: 'Trajet not found' });
+        }
+
+        if (req.user.role !== 'admin') {
+            const chauffeur = await Chauffeur.findOne({ user: req.user._id });
+            if (!chauffeur || chauffeur.status !== 'actif' || !trajet.chauffeur || String(trajet.chauffeur) !== String(chauffeur._id)) {
+                return res.status(403).json({
+                    success: false,
+                    status: 403,
+                    message: 'Accès refusé au trajet'
+                });
+            }
+        }
+
+        if (updates.kilometrageArrivee !== undefined) {
+            if (updates.kilometrageArrivee < trajet.kilometrageDepart) {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Kilométrage arrivée invalide'
+                });
+            }
+            if (trajet.kilometrageArrivee !== undefined && updates.kilometrageArrivee < trajet.kilometrageArrivee) {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Kilométrage arrivée ne peut pas diminuer'
+                });
+            }
+            trajet.kilometrageArrivee = updates.kilometrageArrivee;
+        }
+
+        if (updates.volumeGasoilConsommee !== undefined) {
+            trajet.volumeGasoilConsommee = updates.volumeGasoilConsommee;
+        }
+
+        if (updates.remarquesEtat !== undefined) {
+            trajet.remarquesEtat = updates.remarquesEtat;
+        }
+
+        await trajet.save();
+
+        return res.json({ success: true, status: 200, data: trajet });
+    } catch (err) {
+        return next(err);
+    }
+};
+
 exports.deleteTrajet = async (req, res, next) => {
     try {
         const trajet = await Trajet.findByIdAndDelete(req.params.id);

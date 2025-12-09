@@ -196,6 +196,73 @@ describe('Trajet Controller', () => {
         });
     });
 
+    describe('updateTrajetLog', () => {
+        it('forbids chauffeur not assigned', async () => {
+            const req = { params: { id: 't1' }, body: { kilometrageArrivee: 1500 }, user: { _id: 'u1', role: 'chauffeur' } };
+            const res = mockResponse();
+
+            Trajet.findById.mockResolvedValue({ _id: 't1', chauffeur: 'ch9', kilometrageDepart: 1000 });
+            Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', user: 'u1', status: 'actif' });
+
+            await trajetController.updateTrajetLog(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(res.json).toHaveBeenCalledWith({ success: false, status: 403, message: 'Accès refusé au trajet' });
+        });
+
+        it('rejects kilometrage below depart', async () => {
+            const req = { params: { id: 't1' }, body: { kilometrageArrivee: 900 }, user: { _id: 'u1', role: 'chauffeur' } };
+            const res = mockResponse();
+            const save = jest.fn();
+
+            Trajet.findById.mockResolvedValue({ _id: 't1', chauffeur: 'ch1', kilometrageDepart: 1000, save });
+            Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', user: 'u1', status: 'actif' });
+
+            await trajetController.updateTrajetLog(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ success: false, status: 400, message: 'Kilométrage arrivée invalide' });
+            expect(save).not.toHaveBeenCalled();
+        });
+
+        it('updates log for assigned chauffeur', async () => {
+            const req = {
+                params: { id: 't1' },
+                body: { kilometrageArrivee: 1500, volumeGasoilConsommee: 50, remarquesEtat: 'RAS' },
+                user: { _id: 'u1', role: 'chauffeur' }
+            };
+            const res = mockResponse();
+            const save = jest.fn().mockResolvedValue();
+
+            const trajetDoc = { _id: 't1', chauffeur: 'ch1', kilometrageDepart: 1000, save };
+            Trajet.findById.mockResolvedValue(trajetDoc);
+            Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', user: 'u1', status: 'actif' });
+
+            await trajetController.updateTrajetLog(req, res, next);
+
+            expect(save).toHaveBeenCalled();
+            expect(trajetDoc.kilometrageArrivee).toBe(1500);
+            expect(trajetDoc.volumeGasoilConsommee).toBe(50);
+            expect(trajetDoc.remarquesEtat).toBe('RAS');
+            expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: trajetDoc });
+        });
+
+        it('allows admin to update any trajet', async () => {
+            const req = { params: { id: 't1' }, body: { volumeGasoilConsommee: 10 }, user: { _id: 'adm', role: 'admin' } };
+            const res = mockResponse();
+            const save = jest.fn().mockResolvedValue();
+
+            const trajetDoc = { _id: 't1', chauffeur: 'ch1', kilometrageDepart: 1000, save };
+            Trajet.findById.mockResolvedValue(trajetDoc);
+
+            await trajetController.updateTrajetLog(req, res, next);
+
+            expect(save).toHaveBeenCalled();
+            expect(trajetDoc.volumeGasoilConsommee).toBe(10);
+            expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: trajetDoc });
+        });
+    });
+
     describe('getChauffeurTrajets', () => {
         it('rejects when chauffeur not found or inactive', async () => {
             const req = { user: { _id: 'u1', role: 'chauffeur' } };

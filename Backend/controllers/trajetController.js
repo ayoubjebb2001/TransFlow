@@ -1,6 +1,7 @@
 const Trajet = require('../models/Trajet');
 const Camion = require('../models/Camion');
 const Remorque = require('../models/Remorque');
+const Chauffeur = require('../models/Chauffeur');
 
 exports.createTrajet = async (req, res, next) => {
     try {
@@ -13,6 +14,17 @@ exports.createTrajet = async (req, res, next) => {
                 status: 400,
                 message: 'Camion non disponible'
             });
+        }
+
+        if (payload.chauffeur) {
+            const chauffeur = await Chauffeur.findById(payload.chauffeur);
+            if (!chauffeur || chauffeur.status !== 'actif') {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Chauffeur non trouvé ou inactif'
+                });
+            }
         }
 
         if (payload.remorque) {
@@ -60,6 +72,19 @@ exports.getTrajetById = async (req, res, next) => {
 
 exports.updateTrajet = async (req, res, next) => {
     try {
+        const trajet = await Trajet.findById(req.params.id);
+        if (!trajet) {
+            return res.status(404).json({ success: false, status: 404, message: 'Trajet not found' });
+        }
+
+        if (trajet.statut !== 'à faire') {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Trajet non modifiable hors statut "à faire"'
+            });
+        }
+
         const payload = req.body;
 
         if (payload.camion) {
@@ -74,6 +99,17 @@ exports.updateTrajet = async (req, res, next) => {
             payload.kilometrageDepart = camion.kilometrage;
         }
 
+        if (payload.chauffeur) {
+            const chauffeur = await Chauffeur.findById(payload.chauffeur);
+            if (!chauffeur || chauffeur.status !== 'actif') {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Chauffeur non trouvé ou inactif'
+                });
+            }
+        }
+
         if (payload.remorque) {
             const remorque = await Remorque.findById(payload.remorque);
             if (!remorque || remorque.statut !== 'disponible') {
@@ -85,10 +121,46 @@ exports.updateTrajet = async (req, res, next) => {
             }
         }
 
-        const trajet = await Trajet.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
+        const updatedTrajet = await Trajet.findByIdAndUpdate(req.params.id, payload, {
+            new: true,
+            runValidators: true
+        });
+
+        return res.json({ success: true, status: 200, data: updatedTrajet });
+    } catch (err) {
+        return next(err);
+    }
+};
+
+exports.assignChauffeur = async (req, res, next) => {
+    try {
+        const { chauffeur } = req.body;
+
+        const trajet = await Trajet.findById(req.params.id);
         if (!trajet) {
             return res.status(404).json({ success: false, status: 404, message: 'Trajet not found' });
         }
+
+        if (trajet.statut !== 'à faire') {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Assignation impossible hors statut "à faire"'
+            });
+        }
+
+        const chauffeurDoc = await Chauffeur.findById(chauffeur);
+        if (!chauffeurDoc || chauffeurDoc.status !== 'actif') {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Chauffeur non trouvé ou inactif'
+            });
+        }
+
+        trajet.chauffeur = chauffeurDoc._id;
+        await trajet.save();
+
         return res.json({ success: true, status: 200, data: trajet });
     } catch (err) {
         return next(err);

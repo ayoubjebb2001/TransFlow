@@ -4,9 +4,10 @@ const {
     getTrajets,
     getTrajetById,
     updateTrajet,
-    deleteTrajet
+    deleteTrajet,
+    assignChauffeur
 } = require('../controllers/trajetController');
-const { createTrajetSchema, updateTrajetSchema } = require('../validators/trajet');
+const { createTrajetSchema, updateTrajetSchema, assignChauffeurSchema } = require('../validators/trajet');
 const validate = require('../middlewares/validate');
 
 const router = express.Router();
@@ -15,6 +16,8 @@ router
     .route('/')
     .post(validate(createTrajetSchema), createTrajet)
     .get(getTrajets);
+
+router.patch('/:id/assign-chauffeur', validate(assignChauffeurSchema), assignChauffeur);
 
 router
     .route('/:id')

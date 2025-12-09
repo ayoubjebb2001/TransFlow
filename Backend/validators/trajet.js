@@ -8,7 +8,7 @@ const createTrajetSchema = yup.object({
     date: yup.date().required(),
     camion: yup.string().required(),
     remorque: yup.string().nullable(),
-    chauffeur: yup.string().nullable(),
+    chauffeur: yup.string().nullable().notRequired(),
     kilometrageDepart: yup.number().min(0).notRequired(),
     kilometrageArrivee: yup.number().min(0).nullable(),
     volumeGasoilConsommee: yup.number().min(0).default(0),
@@ -30,4 +30,10 @@ const updateTrajetSchema = yup
     })
     .noUnknown();
 
-module.exports = { createTrajetSchema, updateTrajetSchema };
+const assignChauffeurSchema = yup
+    .object({
+        chauffeur: yup.string().required()
+    })
+    .noUnknown();
+
+module.exports = { createTrajetSchema, updateTrajetSchema, assignChauffeurSchema };

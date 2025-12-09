@@ -19,6 +19,8 @@ const remorqueRoutes = require('./routes/remorqueRoutes');
 const pneuRoutes = require('./routes/pneuRoutes');
 const chauffeurRoutes = require('./routes/chauffeurRoutes');
 const trajetRoutes = require('./routes/trajetRoutes');
+const chauffeurTrajetRoutes = require('./routes/chauffeurTrajetRoutes');
+const { adminOrChauffeur } = require('./middlewares/chauffeur');
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -30,6 +32,7 @@ app.use('/api/admin/remorques', auth, admin, remorqueRoutes);
 app.use('/api/admin/pneus', auth, admin, pneuRoutes);
 app.use('/api/admin/chauffeurs', auth, admin, chauffeurRoutes);
 app.use('/api/admin/trajets', auth, admin, trajetRoutes);
+app.use('/api/chauffeur/trajets', auth, adminOrChauffeur, chauffeurTrajetRoutes);
 
 app.route('/api/protected').get(auth, (req, res) => {
     res.send('Protected route');

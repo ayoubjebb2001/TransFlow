@@ -167,6 +167,46 @@ exports.assignChauffeur = async (req, res, next) => {
     }
 };
 
+exports.getChauffeurTrajets = async (req, res, next) => {
+    try {
+        if (req.user.role === 'admin') {
+            const { chauffeurId } = req.query;
+
+            if (chauffeurId) {
+                const chauffeur = await Chauffeur.findById(chauffeurId);
+                if (!chauffeur) {
+                    return res.status(404).json({
+                        success: false,
+                        status: 404,
+                        message: 'Chauffeur not found'
+                    });
+                }
+                const trajets = await Trajet.find({ chauffeur: chauffeur._id });
+                return res.json({ success: true, status: 200, data: trajets });
+            }
+
+            const trajets = await Trajet.find();
+            return res.json({ success: true, status: 200, data: trajets });
+        }
+
+        const chauffeur = await Chauffeur.findOne({ user: req.user._id });
+
+        if (!chauffeur || chauffeur.status !== 'actif') {
+            return res.status(403).json({
+                success: false,
+                status: 403,
+                message: 'Chauffeur non trouvé ou inactif'
+            });
+        }
+
+        const trajets = await Trajet.find({ chauffeur: chauffeur._id });
+
+        return res.json({ success: true, status: 200, data: trajets });
+    } catch (err) {
+        return next(err);
+    }
+};
+
 exports.deleteTrajet = async (req, res, next) => {
     try {
         const trajet = await Trajet.findByIdAndDelete(req.params.id);

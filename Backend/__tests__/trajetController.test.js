@@ -21,7 +21,8 @@ jest.mock('../models/Remorque', () => ({
 }));
 
 jest.mock('../models/Chauffeur', () => ({
-    findById: jest.fn()
+    findById: jest.fn(),
+    findOne: jest.fn()
 }));
 
 const mockResponse = () => {
@@ -192,6 +193,73 @@ describe('Trajet Controller', () => {
             expect(save).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: expect.objectContaining({ _id: 't1', chauffeur: 'ch1' }) });
             expect(next).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('getChauffeurTrajets', () => {
+        it('rejects when chauffeur not found or inactive', async () => {
+            const req = { user: { _id: 'u1', role: 'chauffeur' } };
+            const res = mockResponse();
+
+            Chauffeur.findOne.mockResolvedValue(null);
+
+            await trajetController.getChauffeurTrajets(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(res.json).toHaveBeenCalledWith({ success: false, status: 403, message: 'Chauffeur non trouvé ou inactif' });
+        });
+
+        it('returns trajets for active chauffeur', async () => {
+            const req = { user: { _id: 'u1', role: 'chauffeur' } };
+            const res = mockResponse();
+
+            Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', status: 'actif' });
+            Trajet.find.mockResolvedValue([{ _id: 't1', chauffeur: 'ch1' }]);
+
+            await trajetController.getChauffeurTrajets(req, res, next);
+
+            expect(Chauffeur.findOne).toHaveBeenCalledWith({ user: 'u1' });
+            expect(Trajet.find).toHaveBeenCalledWith({ chauffeur: 'ch1' });
+            expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: [{ _id: 't1', chauffeur: 'ch1' }] });
+            expect(next).not.toHaveBeenCalled();
+        });
+
+        it('allows admin to fetch all trajets', async () => {
+            const req = { user: { _id: 'admin1', role: 'admin' }, query: {} };
+            const res = mockResponse();
+
+            Trajet.find.mockResolvedValue([{ _id: 't1' }, { _id: 't2' }]);
+
+            await trajetController.getChauffeurTrajets(req, res, next);
+
+            expect(Trajet.find).toHaveBeenCalledWith();
+            expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: [{ _id: 't1' }, { _id: 't2' }] });
+        });
+
+        it('admin with chauffeurId filters by chauffeur', async () => {
+            const req = { user: { _id: 'admin1', role: 'admin' }, query: { chauffeurId: 'ch1' } };
+            const res = mockResponse();
+
+            Chauffeur.findById.mockResolvedValue({ _id: 'ch1' });
+            Trajet.find.mockResolvedValue([{ _id: 't1', chauffeur: 'ch1' }]);
+
+            await trajetController.getChauffeurTrajets(req, res, next);
+
+            expect(Chauffeur.findById).toHaveBeenCalledWith('ch1');
+            expect(Trajet.find).toHaveBeenCalledWith({ chauffeur: 'ch1' });
+            expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: [{ _id: 't1', chauffeur: 'ch1' }] });
+        });
+
+        it('admin with unknown chauffeurId returns 404', async () => {
+            const req = { user: { _id: 'admin1', role: 'admin' }, query: { chauffeurId: 'ch-missing' } };
+            const res = mockResponse();
+
+            Chauffeur.findById.mockResolvedValue(null);
+
+            await trajetController.getChauffeurTrajets(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(404);
+            expect(res.json).toHaveBeenCalledWith({ success: false, status: 404, message: 'Chauffeur not found' });
         });
     });
 

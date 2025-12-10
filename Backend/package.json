@@ -14,7 +14,8 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.0.1",
-    "pdfkit": "^0.17.2",
+    "pdf-lib": "^1.17.1",
+    "tslib": "^2.8.1",
     "yup": "^1.7.1"
   },
   "devDependencies": {

@@ -10,9 +10,11 @@ const admin = require('./middlewares/admin');
 
 const app = express();
 
-app.use(cors(
-    
-));
+app.use(cors({
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: true,
+    credentials: true,
+}));
 app.use(express.json());
 
 const authRoutes = require('./routes/authRoutes');

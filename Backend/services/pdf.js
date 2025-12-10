@@ -1,56 +1,94 @@
-const PDFDocument = require('pdfkit');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
 async function generateMissionPdf({ trajet, camion, chauffeur, remorque }) {
-    return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: 'A4', margin: 50 });
-        const chunks = [];
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-        doc.on('data', chunk => chunks.push(chunk));
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
-        doc.on('error', reject);
+    const page = pdfDoc.addPage();
+    const { width, height } = page.getSize();
+    const margin = 50;
+    let cursorY = height - margin;
 
-        doc.fontSize(18).text('Ordre de mission', { align: 'center' });
-        doc.moveDown();
+    const lineHeight = 16;
 
-        doc.fontSize(12);
-        doc.text(`Trajet: ${trajet._id}`);
-        doc.text(`Date: ${new Date(trajet.date).toLocaleDateString('fr-FR')}`);
-        doc.text(`Départ: ${trajet.depart}`);
-        doc.text(`Arrivée: ${trajet.arrivee}`);
-        doc.moveDown();
+    const drawHeading = (text) => {
+        const size = 18;
+        const textWidth = boldFont.widthOfTextAtSize(text, size);
+        page.drawText(text, {
+            x: (width - textWidth) / 2,
+            y: cursorY,
+            size,
+            font: boldFont,
+            color: rgb(0, 0, 0)
+        });
+        cursorY -= size + 10;
+    };
 
-        if (camion) {
-            doc.text('Camion:');
-            doc.text(`  Immatriculation: ${camion.immatriculation || camion._id}`);
-            if (camion.kilometrage !== undefined) {
-                doc.text(`  Kilométrage: ${camion.kilometrage} km`);
-            }
-            doc.moveDown();
-        }
+    const drawLabelValue = (label, value) => {
+        if (value === undefined || value === null || value === '') return;
+        page.drawText(`${label}: ${value}`, {
+            x: margin,
+            y: cursorY,
+            size: 12,
+            font,
+            color: rgb(0, 0, 0)
+        });
+        cursorY -= lineHeight;
+    };
 
-        if (remorque) {
-            doc.text('Remorque:');
-            doc.text(`  Immatriculation: ${remorque.immatriculation || remorque._id}`);
-            doc.moveDown();
-        }
+    const drawSection = (title, rows) => {
+        page.drawText(title, {
+            x: margin,
+            y: cursorY,
+            size: 14,
+            font: boldFont,
+            color: rgb(0, 0, 0)
+        });
+        cursorY -= lineHeight;
+        rows.forEach(({ label, value }) => drawLabelValue(label, value));
+        cursorY -= 4; // small spacer
+    };
 
-        if (chauffeur) {
-            doc.text('Chauffeur:');
-            doc.text(`  Id: ${chauffeur._id}`);
-            if (chauffeur.user && chauffeur.user.name) {
-                doc.text(`  Nom: ${chauffeur.user.name}`);
-            }
-            doc.moveDown();
-        }
+    drawHeading('Ordre de mission');
 
-        doc.text('Détails supplémentaires:');
-        if (trajet.kilometrageDepart !== undefined) doc.text(`  Km départ: ${trajet.kilometrageDepart} km`);
-        if (trajet.kilometrageArrivee !== undefined) doc.text(`  Km arrivée: ${trajet.kilometrageArrivee} km`);
-        if (trajet.volumeGasoilConsommee !== undefined) doc.text(`  Gasoil consommé: ${trajet.volumeGasoilConsommee} L`);
-        if (trajet.remarquesEtat) doc.text(`  Remarques: ${trajet.remarquesEtat}`);
+    drawSection('Trajet', [
+        { label: 'ID', value: trajet._id },
+        { label: 'Date', value: trajet.date ? new Date(trajet.date).toLocaleDateString('fr-FR') : undefined },
+        { label: 'Départ', value: trajet.depart },
+        { label: 'Arrivée', value: trajet.arrivee }
+    ]);
 
-        doc.end();
-    });
+    if (camion) {
+        drawSection('Camion', [
+            { label: 'Immatriculation', value: camion.immatriculation || camion._id },
+            { label: 'Kilométrage', value: camion.kilometrage !== undefined ? `${camion.kilometrage} km` : undefined }
+        ]);
+    }
+
+    if (remorque) {
+        drawSection('Remorque', [
+            { label: 'Immatriculation', value: remorque.immatriculation || remorque._id }
+        ]);
+    }
+
+    if (chauffeur) {
+        drawSection('Chauffeur', [
+            { label: 'ID', value: chauffeur._id },
+            { label: 'Nom', value: chauffeur.user && chauffeur.user.name ? chauffeur.user.name : undefined },
+            { label: 'Statut', value: chauffeur.status }
+        ]);
+    }
+
+    drawSection('Détails supplémentaires', [
+        { label: 'Km départ', value: trajet.kilometrageDepart !== undefined ? `${trajet.kilometrageDepart} km` : undefined },
+        { label: 'Km arrivée', value: trajet.kilometrageArrivee !== undefined ? `${trajet.kilometrageArrivee} km` : undefined },
+        { label: 'Gasoil consommé', value: trajet.volumeGasoilConsommee !== undefined ? `${trajet.volumeGasoilConsommee} L` : undefined },
+        { label: 'Remarques', value: trajet.remarquesEtat }
+    ]);
+
+    const pdfBytes = await pdfDoc.save();
+    return Buffer.from(pdfBytes);
 }
 
 module.exports = { generateMissionPdf };

@@ -21,11 +21,21 @@ const Register = () => {
 
         try {
             const { ...userData } = values;
-            await register(userData);
+            const response = await register(userData);
+            const registeredUser = response.data.user;
 
-            // Navigate based on role
-            const role = userData.role;
-            navigate(role === 'chauffeur' ? '/chauffeur/dashboard' : '/admin/dashboard');
+            // Check chauffeur status if role is chauffeur
+            if (registeredUser.role === 'chauffeur') {
+
+                if (registeredUser.chauffeurStatus === 'inactif') {
+                    navigate('/chauffeur/inactive');
+                    return;
+                }
+
+                navigate('/chauffeur/dashboard');
+            } else {
+                navigate('/admin/dashboard');
+            }
         } catch (error) {
             const message = error.response?.data?.message || 'Registration failed. Please try again.';
             setServerError(message);

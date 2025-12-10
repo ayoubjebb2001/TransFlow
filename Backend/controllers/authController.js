@@ -25,17 +25,28 @@ exports.register = async (req, res, next) => {
                 {
                     phone: payload.phone,
                     licenseNumber: payload.licenseNumber,
-                    status: payload.status,
                     serviceYears: payload.serviceYears
                 },
                 { abortEarly: false, stripUnknown: true }
             );
 
-            await Chauffeur.create({ user: user._id, ...chauffeurData });
+            const chauffeur = await Chauffeur.create({ user: user._id, ...chauffeurData });
+            const token = generateToken({ id: user._id, role: user.role });
+            const safeUser = user.toJSON();
+            safeUser.chauffeurStatus = chauffeur.status;
+            safeUser.chauffeurId = chauffeur._id;
+
+            return res.status(201).json({
+                success: true,
+                status: 201,
+                message: 'User registered successfully',
+                data: { user: safeUser, token }
+            });
         }
         const token = generateToken({ id: user._id, role: user.role });
 
         return res.status(201).json({
+            success: true,
             status: 201,
             message: 'User registered successfully',
             data: { user, token }
@@ -68,6 +79,19 @@ exports.login = async (req, res, next) => {
         }
 
         const token = generateToken({ id: user._id, role: user.role });
+
+        if (user.role === 'chauffeur') {
+            const chauffeur = await Chauffeur.findOne({ user: user._id });
+            const safeUser = user.toJSON();
+            safeUser.chauffeurStatus = chauffeur?.status;
+            safeUser.chauffeurId = chauffeur?._id;
+
+            return res.json({
+                success: true,
+                status: 200,
+                data: { user: safeUser, token }
+            });
+        }
         return res.json({
             success: true,
             status: 200,

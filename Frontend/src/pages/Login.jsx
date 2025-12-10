@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
+    const navigate = useNavigate();
     const location = useLocation();
     const { login } = useAuth();
     const successMessage = location.state?.message;
@@ -51,6 +52,18 @@ const Login = () => {
 
         try {
             const response = await login(credentials);
+            const userData = response.data.user;
+
+            if (userData.role === 'chauffeur') {
+                if (userData.chauffeurStatus === 'inactif') {
+                    navigate('/chauffeur/inactive');
+                    return;
+                }
+                navigate('/chauffeur/dashboard');
+                return;
+            }
+
+            navigate('/admin/dashboard');
         } catch (error) {
             const message = error.response?.data?.message || 'Login failed. Please try again.';
             setServerError(message);

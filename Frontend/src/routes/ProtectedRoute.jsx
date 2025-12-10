@@ -1,8 +1,8 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-    const { user, loading } = useAuth();
+export const ProtectedRoute = ({ children, allowedRoles = [], allowInactive = false }) => {
+    const { user, loading, isChauffeurInactive } = useAuth();
 
     if (loading) {
         return (
@@ -17,7 +17,11 @@ export const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     }
 
     if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-        return <Navigate to="/unauthorized" replace />;
+        return <Navigate to="/login" replace />;
+    }
+
+    if (!allowInactive && isChauffeurInactive()) {
+        return <Navigate to="/chauffeur/inactive" replace />;
     }
 
     return children;

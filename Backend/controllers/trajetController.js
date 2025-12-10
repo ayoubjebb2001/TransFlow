@@ -3,6 +3,7 @@ const Camion = require('../models/Camion');
 const Remorque = require('../models/Remorque');
 const Chauffeur = require('../models/Chauffeur');
 const Pneu = require('../models/Pneu');
+const { generateMissionPdf } = require('../services/pdf');
 
 exports.createTrajet = async (req, res, next) => {
     try {
@@ -289,6 +290,43 @@ exports.updateTrajetLog = async (req, res, next) => {
         }
 
         return res.json({ success: true, status: 200, data: trajet });
+    } catch (err) {
+        return next(err);
+    }
+};
+
+exports.downloadTrajetPdf = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const trajet = await Trajet.findById(id);
+        if (!trajet) {
+            return res.status(404).json({ success: false, status: 404, message: 'Trajet not found' });
+        }
+
+        if (req.user.role !== 'admin') {
+            const chauffeur = await Chauffeur.findOne({ user: req.user._id });
+            if (!chauffeur || chauffeur.status !== 'actif' || !trajet.chauffeur || String(trajet.chauffeur) !== String(chauffeur._id)) {
+                return res.status(403).json({
+                    success: false,
+                    status: 403,
+                    message: 'Accès refusé au trajet'
+                });
+            }
+        }
+
+        const [camion, chauffeurDoc, remorque] = await Promise.all([
+            Camion.findById(trajet.camion),
+            trajet.chauffeur ? Chauffeur.findById(trajet.chauffeur) : null,
+            trajet.remorque ? Remorque.findById(trajet.remorque) : null
+        ]);
+
+        const pdfBuffer = await generateMissionPdf({ trajet, camion, chauffeur: chauffeurDoc, remorque });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="ordre-mission-${trajet._id}.pdf"`);
+
+        return res.send(pdfBuffer);
     } catch (err) {
         return next(err);
     }

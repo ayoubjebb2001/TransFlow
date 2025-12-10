@@ -4,6 +4,7 @@ const Camion = require('../models/Camion');
 const Remorque = require('../models/Remorque');
 const Chauffeur = require('../models/Chauffeur');
 const Pneu = require('../models/Pneu');
+const { generateMissionPdf } = require('../services/pdf');
 
 jest.mock('../models/Trajet', () => ({
     create: jest.fn(),
@@ -28,6 +29,10 @@ jest.mock('../models/Chauffeur', () => ({
 
 jest.mock('../models/Pneu', () => ({
     find: jest.fn()
+}));
+
+jest.mock('../services/pdf', () => ({
+    generateMissionPdf: jest.fn()
 }));
 
 const mockResponse = () => {
@@ -275,6 +280,20 @@ describe('Trajet Controller', () => {
             expect(save).toHaveBeenCalled();
             expect(trajetDoc.volumeGasoilConsommee).toBe(10);
             expect(res.json).toHaveBeenCalledWith({ success: true, status: 200, data: trajetDoc });
+        });
+    });
+
+    describe('downloadTrajetPdf', () => {
+        it('rejects access when chauffeur not assigned', async () => {
+            const req = { params: { id: 't1' }, user: { _id: 'u1', role: 'chauffeur' } };
+            const res = mockResponse();
+
+            Trajet.findById.mockResolvedValue({ _id: 't1', chauffeur: 'ch9' });
+            Chauffeur.findOne.mockResolvedValue({ _id: 'ch1', user: 'u1', status: 'actif' });
+
+            await trajetController.downloadTrajetPdf(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(403);
         });
     });
 

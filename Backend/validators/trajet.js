@@ -48,4 +48,16 @@ const updateTrajetLogSchema = yup
     })
     .noUnknown();
 
-module.exports = { createTrajetSchema, updateTrajetSchema, assignChauffeurSchema, updateTrajetLogSchema };
+const updateTrajetStatusSchema = yup
+    .object({
+        statut: yup.string().oneOf(statutEnum).required()
+    })
+    .noUnknown();
+
+module.exports = {
+    createTrajetSchema,
+    updateTrajetSchema,
+    assignChauffeurSchema,
+    updateTrajetLogSchema,
+    updateTrajetStatusSchema
+};

@@ -295,6 +295,128 @@ exports.updateTrajetLog = async (req, res, next) => {
     }
 };
 
+exports.updateTrajetStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { statut } = req.body;
+
+        const trajet = await Trajet.findById(id);
+        if (!trajet) {
+            return res.status(404).json({ success: false, status: 404, message: 'Trajet not found' });
+        }
+
+        if (req.user.role !== 'admin') {
+            const chauffeur = await Chauffeur.findOne({ user: req.user._id });
+            if (
+                !chauffeur ||
+                chauffeur.status !== 'actif' ||
+                !trajet.chauffeur ||
+                String(trajet.chauffeur) !== String(chauffeur._id)
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    status: 403,
+                    message: 'Accès refusé au trajet'
+                });
+            }
+        }
+
+        const current = trajet.statut;
+        if (current === 'terminé') {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Trajet déjà terminé'
+            });
+        }
+
+        if (current === 'à faire' && statut === 'terminé') {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Veuillez passer le trajet en "en_cours" avant de terminer'
+            });
+        }
+
+        if (current === 'à faire' && statut === 'en_cours') {
+            const camion = await Camion.findById(trajet.camion);
+            if (!camion || camion.statut !== 'disponible') {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Camion non disponible'
+                });
+            }
+
+            let remorque = null;
+            if (trajet.remorque) {
+                remorque = await Remorque.findById(trajet.remorque);
+                if (!remorque || remorque.statut !== 'disponible') {
+                    return res.status(400).json({
+                        success: false,
+                        status: 400,
+                        message: 'Remorque non disponible'
+                    });
+                }
+            }
+
+            camion.statut = 'en_mission';
+            if (remorque) remorque.statut = 'en_mission';
+
+            trajet.statut = 'en_cours';
+
+            await Promise.all([trajet.save(), camion.save(), remorque ? remorque.save() : Promise.resolve()]);
+            return res.json({ success: true, status: 200, data: trajet });
+        }
+
+        if (current === 'en_cours' && statut === 'terminé') {
+            if (trajet.kilometrageArrivee === undefined || trajet.kilometrageArrivee === null) {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Renseigner le kilométrage arrivée avant de terminer'
+                });
+            }
+            if (trajet.kilometrageArrivee < trajet.kilometrageDepart) {
+                return res.status(400).json({
+                    success: false,
+                    status: 400,
+                    message: 'Kilométrage arrivée invalide'
+                });
+            }
+
+            const [camion, remorque] = await Promise.all([
+                Camion.findById(trajet.camion),
+                trajet.remorque ? Remorque.findById(trajet.remorque) : Promise.resolve(null)
+            ]);
+
+            if (camion && camion.statut === 'en_mission') {
+                camion.statut = 'disponible';
+            }
+            if (remorque && remorque.statut === 'en_mission') {
+                remorque.statut = 'disponible';
+            }
+
+            trajet.statut = 'terminé';
+
+            await Promise.all([trajet.save(), camion ? camion.save() : Promise.resolve(), remorque ? remorque.save() : Promise.resolve()]);
+            return res.json({ success: true, status: 200, data: trajet });
+        }
+
+        if (statut === current) {
+            return res.json({ success: true, status: 200, data: trajet });
+        }
+
+        return res.status(400).json({
+            success: false,
+            status: 400,
+            message: 'Transition de statut non autorisée'
+        });
+    } catch (err) {
+        return next(err);
+    }
+};
+
 exports.downloadTrajetPdf = async (req, res, next) => {
     try {
         const { id } = req.params;

@@ -1,11 +1,17 @@
 const authController = require('../controllers/authController');
 const User = require('../models/User');
+const Chauffeur = require('../models/Chauffeur');
 const { hashPassword, comparePassword } = require('../services/hash');
 const { generateToken } = require('../services/jwt');
 
 jest.mock('../models/User', () => ({
     findOne: jest.fn(),
     create: jest.fn()
+}));
+
+jest.mock('../models/Chauffeur', () => ({
+    create: jest.fn(),
+    findOne: jest.fn()
 }));
 
 jest.mock('../services/hash', () => ({
@@ -33,12 +39,29 @@ describe('Auth Controller', () => {
 
     describe('register', () => {
         it('registers a user and returns token', async () => {
-            const req = { body: { name: 'John', email: 'john@test.com', password: 'secret', role: 'chauffeur' } };
+            const req = {
+                body: {
+                    name: 'John',
+                    email: 'john@test.com',
+                    password: 'secret',
+                    role: 'chauffeur',
+                    phone: '0600000000',
+                    licenseNumber: 'LIC-123',
+                    serviceYears: 1
+                }
+            };
             const res = mockResponse();
 
             User.findOne.mockResolvedValue(null);
             hashPassword.mockResolvedValue('hashed');
-            User.create.mockResolvedValue({ _id: 'user123', role: 'chauffeur', name: 'John', email: 'john@test.com' });
+            User.create.mockResolvedValue({
+                _id: 'user123',
+                role: 'chauffeur',
+                name: 'John',
+                email: 'john@test.com',
+                toJSON: () => ({ _id: 'user123', role: 'chauffeur', name: 'John', email: 'john@test.com' })
+            });
+            Chauffeur.create.mockResolvedValue({ _id: 'chauffeur123', status: 'inactif' });
             generateToken.mockReturnValue('jwt-token');
 
             await authController.register(req, res, next);
@@ -49,6 +72,7 @@ describe('Auth Controller', () => {
             expect(generateToken).toHaveBeenCalledWith({ id: 'user123', role: 'chauffeur' });
             expect(res.status).toHaveBeenCalledWith(201);
             expect(res.json).toHaveBeenCalledWith({
+                success: true,
                 status: 201,
                 message: 'User registered successfully',
                 data: { user: expect.any(Object), token: 'jwt-token' }
@@ -93,7 +117,13 @@ describe('Auth Controller', () => {
             const req = { body: { email: 'john@test.com', password: 'secret' } };
             const res = mockResponse();
 
-            User.findOne.mockResolvedValue({ _id: 'user123', role: 'chauffeur', password: 'hashed' });
+            User.findOne.mockResolvedValue({
+                _id: 'user123',
+                role: 'chauffeur',
+                password: 'hashed',
+                toJSON: () => ({ _id: 'user123', role: 'chauffeur' })
+            });
+            Chauffeur.findOne.mockResolvedValue({ _id: 'chauffeur123', status: 'actif' });
             comparePassword.mockResolvedValue(true);
             generateToken.mockReturnValue('jwt-token');
 

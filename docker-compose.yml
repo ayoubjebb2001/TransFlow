@@ -1,0 +1,55 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: transflow-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - transflow-net
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: transflow-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      MONGO_URI: mongodb://mongo:27017/transflow
+      JWT_SECRET: dev_secret_change_me
+      NODE_ENV: development
+    ports:
+      - "3001:3000"
+    depends_on:
+      - mongo
+    networks:
+      - transflow-net
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: transflow-frontend
+    restart: unless-stopped
+    environment:
+      # Use Vite proxy (/api -> backend) so browser doesn't need to know backend hostname
+      # Leave VITE_API_URL empty to make axios use '/api'
+      VITE_API_URL: ""
+    ports:
+      - "5174:5173"
+    depends_on:
+      - backend
+    networks:
+      - transflow-net
+
+volumes:
+  mongo_data:
+
+
+networks:
+  transflow-net:
+    name: transflow-net
+    driver: bridge
